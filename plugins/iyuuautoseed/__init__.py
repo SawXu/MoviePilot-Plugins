@@ -94,6 +94,7 @@ class IYUUAutoSeed(_PluginBase):
 
     def init_plugin(self, config: dict = None):
         self.sites = SitesHelper()
+        logger.info(f"self.sites.get_indexers(): {self.sites.get_indexers()}")
         self.siteoper = SiteOper()
         self.torrent = TorrentHelper()
         # 读取配置
@@ -116,6 +117,7 @@ class IYUUAutoSeed(_PluginBase):
             all_sites = [site.id for site in self.siteoper.list_order_by_pri()] + [site.get("id") for site in
                                                                                    self.__custom_sites()]
             self._sites = [site_id for site_id in all_sites if site_id in self._sites]
+            logger.info(f"过滤掉已删除的站点，当前辅种站点：{self._sites}")
             self.__update_config()
 
         # 停止现有任务
@@ -745,13 +747,17 @@ class IYUUAutoSeed(_PluginBase):
             return False
         # 查询站点
         site_domain = StringUtils.get_url_domain(site_url)
+        if site_domain == "kp.m-team.cc":
+            site_domain = "xp.m-team.io"
         # 站点信息
         site_info = self.sites.get_indexer(site_domain)
         if not site_info:
-            logger.debug(f"没有维护种子对应的站点：{site_url}")
+            logger.info(f"没有维护种子对应的站点, site_url: {site_url}, site_domain: {site_domain}")
             return False
+        logger.info(f"site_info.get('id'): {site_info.get('id')}, site_url: {site_url}, site_domain: {site_domain}")
+        
         if self._sites and site_info.get('id') not in self._sites:
-            logger.info("当前站点不在选择的辅种站点范围，跳过 ...")
+            # logger.info(f"{site_info.get('id')}不在选择的辅种站点范围，跳过 ...")
             return False
         self.realtotal += 1
         # 查询hash值是否已经在下载器中
@@ -773,6 +779,7 @@ class IYUUAutoSeed(_PluginBase):
                                               base_url=download_page)
         if not torrent_url:
             # 加入失败缓存
+            logger.info(f"Get torrent url failed, torrent_id: {seed.get('torrent_id')}, site id: {site_info.get('id')}")
             self._error_caches.append(seed.get("info_hash"))
             self.fail += 1
             self.cached += 1
